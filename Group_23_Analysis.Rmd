@@ -2,30 +2,328 @@
 title: "Group 23 Analysis"
 author: "Group 23"
 date: "2023-03-08"
-output: pdf_document
+output:
+  pdf_document:
+    latex_engine: xelatex
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = FALSE, warning=FALSE, message=FALSE)
+
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(knitr)
+library(gridExtra)
+library(forcats)
+library(kableExtra)
+library(stringr)
+library(skimr)
+
+set.seed(23)
 ```
 
-## R Markdown
+## Initial Data Cleaning and Exploration
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+Having inspected the .csv file, we can see that there are some cleaning steps to be done before the data is usable for modelling.
+First, let us look at the first rows of the dataset:
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+```{r head_dataset}
+raw_dataset <- read.csv("dataset23.csv", row.names=1)
 
-```{r cars}
-print("I added this bit in RStudio.")
-head(read.csv("dataset23.csv"))
+raw_dataset <- raw_dataset %>%
+  mutate(category=if_else(str_starts(category, 'Caf'), "Cafe furniture", category))
+
+head(raw_dataset, n=5) %>%
+  kable(caption = '\\label{tab:head} The features of the first five items in the dataset.', format="latex", booktabs=TRUE) %>%
+   kable_styling(font_size = 10, latex_options = "hold_position")
 ```
 
-## Including Plots
+The first column, `item_id`, gives a numerical label for each item. This is unlikely to be related to the price of the item, so we should drop it from the dataset. 
 
-You can also embed plots, for example:
+### Category
+The `category` column is currently presented as a column of strings, but there are a lot of repeated values, as shown in table \ref{tab:categories}
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+```{r categories_table}
+# We will use this data later on
+category_counts <- raw_dataset %>%
+  group_by(category) %>%
+  summarise(number=n()) %>%
+  arrange(desc(number))
+
+category_counts %>%
+  kable(caption = '\\label{tab:categories} The distinct categories in the dataset and the number of items in each category, sorted from largest category to smallest.', format="latex", booktabs=TRUE) %>%
+   kable_styling(font_size = 10, latex_options = "hold_position")
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+This means the column should be converted to a factor and treated as a categorical variable in the model. Given that categorical variables create a separate parameter in a model for each unique category, leaving this column in its current form may create a very complex model. We could try grouping some categories together (perhaps categories with similar median prices), or rely on our model selection procedure to show us which parameters can be dropped from them model.
+
+### Price
+
+This column contains the price of the item in Saudi Riyals, and will be the basis for our target variable. Our aim is to estimate the importance of the other variables in predicting whether an item costs more than 1000 Riyals, i.e. whether the item's entry in column is above or below 1000. The distribution of this column is shown in figure \ref{fig:price_hist}.
+
+```{r price_hist_fig, out.width="90%", out.height="75%", fig.align = "center", fig.pos = "H", fig.cap = "\\label{fig:price_hist} \\textbf{A}: The distribution of prices, measured in Saudi Riyals (SR). Each bin is 250SR wide, and the red line marks 1000SR on the x-axis. \\textbf{B}: The number of items with prices below 1000SR and above 1000SR."}
+
+
+get_label_x <- function(plt){
+  xlim <- ggplot_build(plt)$layout$panel_params[[1]]$x.range[2]
+  return(0.925*xlim)
+}
+
+get_label_y <- function(plt){
+  ylim <- ggplot_build(plt)$layout$panel_params[[1]]$y.range[2]
+  return(0.925*ylim)
+}
+
+
+price1 <- ggplot(data=raw_dataset, mapping=aes(x=price)) +
+  # center=125 sets the midpoint of the first bin at exactly half the binwidth, so the first bin will start at zero
+  geom_histogram(binwidth=250, center=125) +
+  # add a vertical line at 1000 as this is the price we will use to create prediction groups
+  geom_vline(xintercept = 1000, color="red") +
+  xlab("Item Price (SR)") +
+  ylab("Number of Items")
+
+price1 <- price1 + annotate("text", x=get_label_x(price1), y=get_label_y(price1), label="A", size=8)
+
+price_bucket_counts <- raw_dataset %>%
+  # create a column saying if the item was over or under 1000SR
+  mutate(over_1000=if_else(price < 1000, "Under 1000" ,"Over 1000")) %>%
+  group_by(over_1000) %>%
+  summarise(number_of_items=n())
+
+price2 <- ggplot(data=price_bucket_counts,
+                 # fct_rev() orders the bars in reverse alphabetical order, so we get low price items before high price items
+                 mapping=aes(x=fct_rev(over_1000), y=number_of_items)) + 
+  geom_col() +
+  xlab("Item Price (SR)") +
+  ylab("") # Get rid of second y label, the label from the first graph works for both
+  
+price2 <- price2 + annotate("text", x=get_label_x(price2), y=get_label_y(price2), label="B", size=8)
+
+grid.arrange(price1, price2, ncol=2)
+
+g <- arrangeGrob(price1, price2, ncol=2)
+ggsave(plot=g, device="svg", filename="price_hist.svg", path="plots")
+```
+
+From these graphs, we can see that the distribution of prices is quite skewed to the right. The first bar of graph A is the largest, so it is most common for items to be priced under 250SR. The bars generally get smaller as the price gets larger, but the distribution has a long tail out to around 9000SR. Graph B shows the number of items below and above 1000SR. It appears that there are around 320 items below 1000SR and around 160 items above 1000SR.
+
+### Sellable Online
+The `sellable_online` column is a binary variable indicating whether the item can be purchased via the internet. Table \ref{tab:sellable} shows that this variable is very unbalanced: almost all of the items are available online. This may limit the usefulness of this variable when predicting the price category, but this will become more clear once the model has been fitted.
+
+```{r sellable_online}
+
+raw_dataset %>%
+  group_by(sellable_online) %>%
+  summarise(number_of_items=n()) %>%
+  arrange(desc(number_of_items)) %>%
+  kable( caption = '\\label{tab:sellable} The number of items available or unavailable online.', format="latex", booktabs=TRUE) %>%
+   kable_styling(font_size = 10, latex_options = "hold_position")
+```
+
+### Other Colors
+
+The `other_colors` column is another binary variable, taking the value "yes" when the item is available in other colours and "no" when it is not. Table \ref{tab:colours} shows how many items fit into each group. This column is more balanced than `sellable_online`, with about 40% of items available in another colour and 60% unavailable.
+
+```{r colours_table}
+raw_dataset %>%
+  group_by(other_colors) %>%
+  summarise(number_of_items=n()) %>%
+  arrange(desc(number_of_items)) %>%
+  kable( caption = '\\label{tab:colours} The number of items available or unavailable in other colours.', format="latex", booktabs=TRUE) %>%
+   kable_styling(font_size = 10, latex_options = "hold_position")
+```
+
+### Depth, Height & Width
+
+These three variables describe the physical dimensions of each item, measured in centimetres. As can be seen from the first row of table \ref{tab:head}, these variables can contain missing values, so we will have to address this before using these variables for modelling. First we can look at the distribution of each variable in figures \ref{fig:dims_1}, \ref{fig:dims_2} and \ref{fig:dims_3}. 
+
+#### Depth
+
+From figure \ref{fig:dims_1}, it appears that the most common values are between 20 and 60cm, with the peak being somewhere between 30 and 50cm. The frequency of depths drops off quickly above 60cm, apart from a spike at the 90-100cm bin. There are a few items with depths of greater than 150cm, but most of the distribution occurs below 100cm.
+
+```{r dims_fig_1, out.width="70%",  fig.align = "center", fig.pos = "H", fig.cap = "\\label{fig:dims_1} The distribution of depth measurements in cm. Each bin covers a 10cm range."}
+
+ggplot(data=raw_dataset, mapping=aes(x=depth)) + 
+  geom_histogram(binwidth=10, center=5) +
+  xlab("Depth (cm)") +
+  ylab("Number of items")
+
+
+ggsave(device="svg", filename="depth_hist.svg", path="plots")
+```
+#### Height
+
+Figure \ref{fig:dims_2} shows that height is distributed more widely than depth, with some amount of the distribution present from 0 to 250cm. and There are typically 10-30 items in each of the bins between 30 and 110cm, apart from a strong peak between 70 and 90cm. Outside that range, there are typically between 1 and 10 items per bin throughout the variable range.
+
+```{r dims_fig_2, out.width="70%",  fig.align = "center", fig.pos = "H", fig.cap = "\\label{fig:dims_2}The distribution of height measurements in cm. Each bin covers a 10cm range."}
+ggplot(data=raw_dataset, mapping=aes(x=height)) + 
+  geom_histogram(binwidth=10, center=5) +
+  xlab("Height (cm)")
+
+
+ggsave(device="svg", filename="height_hist.svg", path="plots")
+```
+#### Width
+
+The distribution of width measurements is shown in figure \ref{fig:dims_3}. This distribution is somewhat similar to the distribution for depth in figure \ref{fig:dims_1}. There is a large peak roughly between 60 and 80cm, with a long tail to the right. The tail is heavier here than for depth, with items appearing all the way out to 360cm.
+```{r dims_fig_3, out.width="70%",  fig.align = "center", fig.pos = "H", fig.cap = "\\label{fig:dims_3}The distribution of width measurements in cm. Each bin covers a 20cm range."}
+ggplot(data=raw_dataset, mapping=aes(x=width)) + 
+  geom_histogram(binwidth=20, center=10) +
+  xlab("Width (cm)")
+
+ggsave(device="svg", filename="width_hist.svg", path="plots")
+```
+
+These distributions may have more structure hidden in them, as they include a range of items of many different categories. It is reasonable to expect that the dimensions of items in different categories would be distributed differently. For instance, we would expect wardrobes to typically be taller than chairs. We can examine the distributions of these variables for some of the larger categories listen in table \ref{tab:categories}.
+
+### Dimensions of Different Categories
+The distributions of depth, height and width for each category are shown in figures \ref{fig:depth_by_category}, \ref{fig:height_by_category} and \ref{fig:width_by_category}, respectively. The top plots show the 8 largest categories and the bottom plots show the rest. 
+
+
+```{r depth_by_category_fig, fig.height=4, fig.align = "center", fig.cap = "\\label{fig:depth_by_category} Boxplots of the depth (in cm) of items in each category."}
+cats <- category_counts$category[1:8]
+
+depth1 <- raw_dataset %>%
+  filter(category %in% cats) %>%
+  mutate(category=str_wrap(category, 10)) %>%
+  ggplot(mapping=aes(x=category, y=depth)) +
+  geom_boxplot() +
+  xlab("") +
+  ylab("Depth (cm)")
+
+depth2 <- raw_dataset %>%
+  filter(!(category %in% cats)) %>%
+  mutate(category=str_wrap(category, 10)) %>%
+  ggplot(mapping=aes(x=category, y=depth)) +
+  geom_boxplot() +
+  xlab("Category") +
+  ylab("Depth (cm)")
+
+grid.arrange(depth1, depth2, ncol=1)
+
+g<- arrangeGrob(depth1, depth2)
+ggsave(g, device="svg", filename="depth_box.svg", path="plots")
+```
+From the upper plot in figure \ref{fig:depth_by_category} we can see that the median depths for the more common categories are often around 50cm. The clear exceptions to this are the "Beds", "Outdoor Furniture" and "Sofas & Armchairs" categories. For the less common categories, the median depth is also typically close to 50cm, except for "Nursery Furniture" and "Trolleys". These categories have only a small number of items in each, so the distributions are likely to be noisier than for more numerous categories. There is also some difference in the range of these distributions, particularly for "Beds". This may be due to double and single beds both being included in this category.
+
+```{r height_by_category_fig, fig.height=4, fig.align = "center", fig.pos = "H", fig.cap = "\\label{fig:height_by_category} Boxplots of the height (in cm) of items in each category."}
+height1 <- raw_dataset %>%
+  filter(category %in% cats) %>%
+  mutate(category=str_wrap(category, 10)) %>%
+  ggplot(mapping=aes(x=category, y=height)) +
+  geom_boxplot() +
+  xlab("") +
+  ylab("Height (cm)")
+
+height2 <- raw_dataset %>%
+  filter(!(category %in% cats)) %>%
+  mutate(category=str_wrap(category, 10)) %>%
+  ggplot(mapping=aes(x=category, y=height)) +
+  geom_boxplot() +
+  xlab("Category") +
+  ylab("Height (cm)")
+
+grid.arrange(height1, height2, ncol=1)
+
+g<- arrangeGrob(height1, height2)
+ggsave(g, device="svg", filename="height_box.svg", path="plots")
+```
+Figure \ref{fig:height_by_category} shows the boxplots of height for each category. In the upper plot, we can see that the median height for several of the categories is approximately 75cm, with the exception of "Bookcases & shelving units", "Cabinets & cupboards" & "Wardrobes". Interestingly, the median height of wardrobes is very close to the maximum height for this category, indicating that there are many items with the same or similar height. In the lower plot, the median heights are typically somewhat similar, between 75 and 100cm with the exception of "Room dividers", "Sideboards, buffets & console tables" (with medians over 100cm) and "TV & media furniture" with median height around 50cm.
+
+```{r width_by_category_fig, fig.height=4, fig.align = "center", fig.pos = "H", fig.cap = "\\label{fig:width_by_category} Boxplots of the width (in cm) of items in each category."}
+width1 <- raw_dataset %>%
+  filter(category %in% cats) %>%
+  mutate(category=str_wrap(category, 10)) %>%
+  ggplot(mapping=aes(x=category, y=width)) +
+  geom_boxplot() +
+  xlab("") +
+  ylab("Width (cm)")
+
+width2 <- raw_dataset %>%
+  filter(!(category %in% cats)) %>%
+  mutate(category=str_wrap(category, 10)) %>%
+  ggplot(mapping=aes(x=category, y=width)) +
+  geom_boxplot() +
+  xlab("Category") +
+  ylab("Width (cm)")
+
+grid.arrange(width1, width2, ncol=1)
+
+g<- arrangeGrob(width1, width2)
+ggsave(g, device="svg", filename="width_box.svg", path="plots")
+```
+Lastly, figure \ref{fig:width_by_category} shows the boxplots of width for each category. In the upper plot, the medians range from approximately 50cm ("Chairs" and "Outdoor furniture") to much larger values: "Beds" and "Wardrobes" have medians of around 150cm and "Sofas & armchairs" has a median of over 200cm. The ranges of width values for the categories in this plot are often quite wide, with some tanging from below 50cm to over 300cm. For the lower plot, the medians appear a little more consistent, typically around 50cm, although "Chests of drawers & drawer units", "Room dividers" and "Sideboards, buffets & console tables" have noticeably larger medians. 
+
+
+# Missing Data
+
+```{r missing_data}
+null_skim <- skim_with(base = sfl(n_missing=n_missing, complete_rate=complete_rate), character=sfl(), numeric=sfl(), logical=sfl(), append=FALSE)
+
+raw_dataset %>% 
+  null_skim() %>%
+  select(-skim_type) %>%
+  kable( caption = '\\label{tab:nulls}', format="latex", booktabs=TRUE) %>%
+  kable_styling(font_size = 10, latex_options = "hold_position")
+
+drop_proportion <- (raw_dataset %>%
+  filter(if_any(c("depth", "height", "width"), is.na)) %>%
+  nrow()) / nrow(raw_dataset)
+```
+Some of the items in the dataset are missing values for some variables, as can be seen from the first row of table \ref{tab:head}. Table \ref{tab:nulls} shows the number of missing values in each column, along with the proportion of items that are not missing a value in that column. The only variables with missing information are the ones describing the dimensions of the item: depth, height and width. These missing values must be handled somehow if the data is to be used for modelling. The simplest way to treat this data would be to drop all rows which are missing one or more values. However, it can be seen from \ref{tab:head} that only 60.2% of rows are not missing their depth value. This means that dropping rows with missing values would remove at least 39.8% of the dataset. In fact, taking all three dimension variables into account, this cleaning strategy would remove `r round(100 * drop_proportion, 1)`% of the rows in the dataset. This seems like too much data to lose, so we must impute the missing values somehow. The distributions of these variables have some slightly irregular features and outliers, so mean imputation may be inappropriate. The median may be a more robust approach, although a global median for each variable may also be inappropriate as the distribution of each variable can differ strongly between item categories, as shown in figures \ref{fig:depth_by_category}, \ref{fig:height_by_category} and \ref{fig:width_by_category}. Therefore, we can try cleaning these columns by assigning the median of the relevant item category in place of missing values.
+
+#### Multiple Missing Values
+```{r all_missing_data}
+all_missing_proportion <- (raw_dataset %>%
+   filter(if_all(c("depth", "height", "width"), is.na)) %>%
+   nrow()) / nrow(raw_dataset)
+```
+In some cases, all 3 dimension variables are missing from an item. This occurs in `r round(all_missing_proportion, 1)`% of rows. As this is a small proportion of the overall dataset and imputing all 3 dimensions of the item would likely lead to a poor approximation of the true values, we should drop these rows from the dataset we use for modelling.
+
+### Cleaning the Data
+We are now in a position to prepare the dataset for modelling. The processing steps to be done are:
+* Discard the `item_id` column
+* Convert `category`, `sellable_online` and `other_color` to be factors
+* Convert the `price` column into a binary target variable based on whether it is greater than 1000SR
+* Drop any rows where all 3 of `depth`, `height` and `width` are missing
+* Replace any remaining missing values of `depth`, `height` and `width` with the median value for their category.
+
+These steps are applied below:
+
+```{r apply_cleaning_steps, echo=TRUE}
+cleaned_dataset <- raw_dataset %>%
+  # filter out rows missing all 3 columns
+  filter(!if_all(c("depth", "height", "width"), is.na)) %>% 
+  select(-item_id) %>% #drop the item id column
+  mutate( # most of the changes are simple vectorised conversions
+    category=as.factor(category), 
+    sellable_online=as.factor(sellable_online), 
+    other_colors=as.factor(other_colors),
+    price=as.integer(if_else(price >= 1000, 1, 0))
+    )
+
+# replacing missing values will be more complicated
+# there may be a cleaner way to do this
+for (cat in category_counts$category){ #loop through each category in the dataset
+  
+  cat_filter <- cleaned_dataset$category == cat  # find all items of this category
+  
+  for (i in 5:7){ # for each dimension column (columns 5, 6 and 7)
+    
+    # find all items with NA in this column
+    na_filter <- is.na(cleaned_dataset[, i])
+    
+    # replace the values matching both filters with the median for this category
+    cleaned_dataset[cat_filter & na_filter, i] <- median(cleaned_dataset[cat_filter, i], 
+                                                         na.rm=TRUE)
+  }
+}
+
+head(cleaned_dataset, n=5) %>% 
+  kable(caption = '\\label{tab:cleaned} The features of the first five items in the dataset after the cleaning steps have been applied.', format="latex", booktabs=TRUE) %>%
+   kable_styling(font_size = 10, latex_options = "hold_position")
+```
+
+Finally we can see the features of the cleaned data. Comparing tables \ref{tab:head} and \ref{tab:cleaned} shows that the transformations appear to have worked: the price is now a binary variable matching what we'd expect from the value in table \ref{tab:head} and the missing value for `depth` in the first row has been replaced, while the categorical variables appear unchanged apart from being converted into factors in the background. 
