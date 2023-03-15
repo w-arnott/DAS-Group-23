@@ -84,6 +84,8 @@ price1 <- ggplot(data=raw_dataset, mapping=aes(x=price)) +
   xlab("Item Price (SR)") +
   ylab("Number of Items")
 
+
+ggsave(plot=price1, device="svg", filename="price_hist_A.svg", path="plots")
 price1 <- price1 + annotate("text", x=get_label_x(price1), y=get_label_y(price1), label="A", size=8)
 
 price_bucket_counts <- raw_dataset %>%
@@ -98,13 +100,12 @@ price2 <- ggplot(data=price_bucket_counts,
   geom_col() +
   xlab("Item Price (SR)") +
   ylab("") # Get rid of second y label, the label from the first graph works for both
-  
+
+ggsave(plot=price2, device="svg", filename="price_hist_B.svg", path="plots")
 price2 <- price2 + annotate("text", x=get_label_x(price2), y=get_label_y(price2), label="B", size=8)
 
 grid.arrange(price1, price2, ncol=2)
-
 g <- arrangeGrob(price1, price2, ncol=2)
-ggsave(plot=g, device="svg", filename="price_hist.svg", path="plots")
 ```
 
 From these graphs, we can see that the distribution of prices is quite skewed to the right. The first bar of graph A is the largest, so it is most common for items to be priced under 250SR. The bars generally get smaller as the price gets larger, but the distribution has a long tail out to around 9000SR. Graph B shows the number of items below and above 1000SR. It appears that there are around 320 items below 1000SR and around 160 items above 1000SR.
@@ -150,9 +151,46 @@ ggplot(data=raw_dataset, mapping=aes(x=depth)) +
   xlab("Depth (cm)") +
   ylab("Number of items")
 
-
 ggsave(device="svg", filename="depth_hist.svg", path="plots")
 ```
+
+```{r depth_spike}
+raw_dataset %>%
+  filter(!is.na(depth)) %>%
+  mutate(
+    is_90_100=depth >= 90 & depth <= 100,
+    is_sofa=category == "Sofas & armchairs"
+    ) %>%
+  group_by(is_90_100, is_sofa) %>%
+  summarise(count=n()) %>%
+  pivot_wider(id_cols=is_90_100, names_from=is_sofa, values_from=count) %>%
+  rename(is_sofa="TRUE", is_not_sofa="FALSE") %>%
+  mutate(total=is_sofa+is_not_sofa, sofa_proportion=round(is_sofa/total, 2)) %>%
+  select(is_90_100, total, sofa_proportion) %>%
+  kable( caption = '\\label{tab:sofa_prop} The proportion of items with depth between 90 and 100cm that are sofas, compared to items outside this depth range.', format="latex", booktabs=TRUE) %>%
+   kable_styling(font_size = 10, latex_options = "hold_position")
+```
+The spike in depth between 90cm and 100cm is explained by a large number of sofas having depths in this range, as can be seen from table \ref{tab:sofa_prop}
+
+```{r depth_outliers}
+raw_dataset %>%
+  filter(!is.na(depth)) %>%
+  mutate(
+    is_outlier=depth >= 150,
+    is_sofa=category == "Sofas & armchairs"
+    ) %>%
+  group_by(is_outlier, is_sofa) %>%
+  summarise(count=n()) %>%
+  pivot_wider(id_cols=is_outlier, names_from=is_sofa, values_from=count) %>%
+  rename(is_sofa="TRUE", is_not_sofa="FALSE") %>%
+  mutate(total=is_sofa+is_not_sofa, sofa_proportion=round(is_sofa/total, 2)) %>%
+  select(is_outlier, total, sofa_proportion) %>%
+  kable( caption = '\\label{tab:sofa_outlier_prop} The proportion of items with depth between 90 and 100cm that are sofas, compared to items outside this depth range.', format="latex", booktabs=TRUE) %>%
+   kable_styling(font_size = 10, latex_options = "hold_position")
+```
+From table \ref{tab:sofa_outlier_prop}, it is evident that the large depth values are also largely because of sofas and armchairs.
+
+
 #### Height
 
 Figure \ref{fig:dims_2} shows that height is distributed more widely than depth, with some amount of the distribution present from 0 to 250cm. and There are typically 10-30 items in each of the bins between 30 and 110cm, apart from a strong peak between 70 and 90cm. Outside that range, there are typically between 1 and 10 items per bin throughout the variable range.
@@ -165,6 +203,53 @@ ggplot(data=raw_dataset, mapping=aes(x=height)) +
 
 ggsave(device="svg", filename="height_hist.svg", path="plots")
 ```
+```{r height_spike}
+raw_dataset %>%
+  filter(!is.na(height)) %>%
+  mutate(
+    is_peak=height >= 70 & height <= 90,
+    category=if_else(category %in% c("Sofas & armchairs", "Tables & desks", "Chairs"), category, "Other")
+    ) %>%
+  mutate(category=str_replace_all(category, " ", "_"), category=str_replace_all(category, "_&(.*)", "")) %>%
+  group_by(is_peak, category) %>%
+  summarise(count=n()) %>%
+  pivot_wider(id_cols=is_peak, names_from=category, values_from=count) %>%
+  mutate(
+    total= Chairs + Other + Sofas + Tables,
+    chair_prop=round(Chairs/total, 2),
+    other_prop=round(Other/total, 2),
+    sofa_prop=round(Sofas/total, 2),
+    table_prop=round(Tables/total, 2)
+  ) %>%
+  select(is_peak, total, chair_prop, other_prop, sofa_prop, table_prop) %>%
+  kable( caption = '\\label{tab:height_peak_prop} The proportion of items with height between 70 and 90cm that are sofas, chairs or tables compared to items outside this height range.', format="latex", booktabs=TRUE) %>%
+   kable_styling(font_size = 10, latex_options = "hold_position")
+```
+Table \ref{tab:height_peak_prop} shows the proportion of items in the peak of the height distribution that are chairs, sofas or tables or none of these ("other" items), compared to items outside this height range. We can see that sofas, chairs and particularly tables are overrepresented in this height range compared to elsewhere. This makes sense, as tables need to be of roughly a certain height in order to be useful to most people. Items for sitting on will likely be a similar height to tables, as we typically sit when using a table.
+
+```{r height_large}
+raw_dataset %>%
+  filter(!is.na(height)) %>%
+  mutate(
+    is_upper=height > 165,
+    category=if_else(category %in% c("Wardrobes", "Bookcases & shelving units"), category, "Other")
+    ) %>%
+  mutate(category=str_replace_all(category, " ", "_"), category=str_replace_all(category, "_&(.*)", "")) %>%
+  group_by(is_upper, category) %>%
+  summarise(count=n()) %>%
+  pivot_wider(id_cols=is_upper, names_from=category, values_from=count) %>%
+  mutate(
+    total= Wardrobes + Bookcases + Other,
+    wardrobe_prop=round(Wardrobes/total, 2),
+    other_prop=round(Other/total, 2),
+    bookcase_prop=round(Bookcases/total, 2)
+  ) %>%
+  select(is_upper, total, wardrobe_prop, other_prop, bookcase_prop) %>%
+  kable( caption = '\\label{tab:height_upper_prop} The proportion of items over 165cm in height that are wardrobes, bookcases or other items, compared to the proportion for items below 165cm in height.', format="latex", booktabs=TRUE) %>%
+  kable_styling(font_size = 10, latex_options = "hold_position")
+```
+Evidently, from table \ref{tab:height_upper_prop}, wardrobes and bookcases form a significant proportion of the items over 165cm in height, accounting for 80% of such items in the dataset. They are much less common at lower heights, which is to be expected given that these tend to be used for storing large objects (in the case of wardrobes) or centralising the storage of many small objects (in the case of bookcases).
+
 #### Width
 
 The distribution of width measurements is shown in figure \ref{fig:dims_3}. This distribution is somewhat similar to the distribution for depth in figure \ref{fig:dims_1}. There is a large peak roughly between 60 and 80cm, with a long tail to the right. The tail is heavier here than for depth, with items appearing all the way out to 360cm.
@@ -177,6 +262,30 @@ ggsave(device="svg", filename="width_hist.svg", path="plots")
 ```
 
 These distributions may have more structure hidden in them, as they include a range of items of many different categories. It is reasonable to expect that the dimensions of items in different categories would be distributed differently. For instance, we would expect wardrobes to typically be taller than chairs. We can examine the distributions of these variables for some of the larger categories listen in table \ref{tab:categories}.
+
+```{r width_peak}
+raw_dataset %>%
+  filter(!is.na(width)) %>%
+  mutate(
+    is_peak=width >= 40 & width <= 80,
+    category=if_else(category %in% c("Chairs", "Tables & desks"), category, "Other")
+    ) %>%
+  mutate(category=str_replace_all(category, " ", "_"), category=str_replace_all(category, "_&(.*)", "")) %>%
+  group_by(is_peak, category) %>%
+  summarise(count=n()) %>%
+  pivot_wider(id_cols=is_peak, names_from=category, values_from=count) %>%
+  mutate(
+    total= Chairs + Tables + Other,
+    chair_prop=round(Chairs/total, 2),
+    other_prop=round(Other/total, 2),
+    table_prop=round(Tables/total, 2)
+  ) %>%
+  select(is_peak, total, chair_prop, other_prop, table_prop) %>%
+  kable( caption = '\\label{tab:width_peak_prop} The proportion of items between 40 and 80cm in width that are chairs, tables or something else compared to these proportions for items outside this width range.', format="latex", booktabs=TRUE) %>%
+  kable_styling(font_size = 10, latex_options = "hold_position")
+```
+From table \ref{tab:width_peak_prop}, it can be seen that chairs and tables form a much larger proportion of the items in the peak of the width distribution (between 40 and 80cm) than outside this range.
+
 
 ### Dimensions of Different Categories
 The distributions of depth, height and width for each category are shown in figures \ref{fig:depth_by_category}, \ref{fig:height_by_category} and \ref{fig:width_by_category}, respectively. The top plots show the 8 largest categories and the bottom plots show the rest. 
@@ -201,10 +310,9 @@ depth2 <- raw_dataset %>%
   xlab("Category") +
   ylab("Depth (cm)")
 
+ggsave(depth1, device="svg", filename="depth_box_top.svg", path="plots")
+ggsave(depth1, device="svg", filename="depth_box_bottom.svg", path="plots")
 grid.arrange(depth1, depth2, ncol=1)
-
-g<- arrangeGrob(depth1, depth2)
-ggsave(g, device="svg", filename="depth_box.svg", path="plots")
 ```
 From the upper plot in figure \ref{fig:depth_by_category} we can see that the median depths for the more common categories are often around 50cm. The clear exceptions to this are the "Beds", "Outdoor Furniture" and "Sofas & Armchairs" categories. For the less common categories, the median depth is also typically close to 50cm, except for "Nursery Furniture" and "Trolleys". These categories have only a small number of items in each, so the distributions are likely to be noisier than for more numerous categories. There is also some difference in the range of these distributions, particularly for "Beds". This may be due to double and single beds both being included in this category.
 
@@ -225,10 +333,10 @@ height2 <- raw_dataset %>%
   xlab("Category") +
   ylab("Height (cm)")
 
-grid.arrange(height1, height2, ncol=1)
 
-g<- arrangeGrob(height1, height2)
-ggsave(g, device="svg", filename="height_box.svg", path="plots")
+ggsave(height1, device="svg", filename="height_box_top.svg", path="plots")
+ggsave(height2, device="svg", filename="height_box_bottom.svg", path="plots")
+grid.arrange(height1, height2, ncol=1)
 ```
 Figure \ref{fig:height_by_category} shows the boxplots of height for each category. In the upper plot, we can see that the median height for several of the categories is approximately 75cm, with the exception of "Bookcases & shelving units", "Cabinets & cupboards" & "Wardrobes". Interestingly, the median height of wardrobes is very close to the maximum height for this category, indicating that there are many items with the same or similar height. In the lower plot, the median heights are typically somewhat similar, between 75 and 100cm with the exception of "Room dividers", "Sideboards, buffets & console tables" (with medians over 100cm) and "TV & media furniture" with median height around 50cm.
 
@@ -250,9 +358,8 @@ width2 <- raw_dataset %>%
   ylab("Width (cm)")
 
 grid.arrange(width1, width2, ncol=1)
-
-g<- arrangeGrob(width1, width2)
-ggsave(g, device="svg", filename="width_box.svg", path="plots")
+ggsave(width1, device="svg", filename="width_box_top.svg", path="plots")
+ggsave(width2, device="svg", filename="width_box_bottom.svg", path="plots")
 ```
 Lastly, figure \ref{fig:width_by_category} shows the boxplots of width for each category. In the upper plot, the medians range from approximately 50cm ("Chairs" and "Outdoor furniture") to much larger values: "Beds" and "Wardrobes" have medians of around 150cm and "Sofas & armchairs" has a median of over 200cm. The ranges of width values for the categories in this plot are often quite wide, with some tanging from below 50cm to over 300cm. For the lower plot, the medians appear a little more consistent, typically around 50cm, although "Chests of drawers & drawer units", "Room dividers" and "Sideboards, buffets & console tables" have noticeably larger medians. 
 
