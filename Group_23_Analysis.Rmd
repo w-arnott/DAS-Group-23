@@ -51,12 +51,18 @@ category_counts <- raw_dataset %>%
   summarise(number=n()) %>%
   arrange(desc(number))
 
-category_counts %>%
-  kable(caption = '\\label{tab:categories} The distinct categories in the dataset and the number of items in each category, sorted from largest category to smallest.', format="latex", booktabs=TRUE) %>%
-   kable_styling(font_size = 10, latex_options = "hold_position")
+options(knitr.kable.NA = '')
+knitr::kable(
+  list(category_counts[1:9,], category_counts[10:18,]),
+  caption = '\\label{tab:categories} The distinct categories in the dataset and the number of items in each category, sorted from largest category to smallest.',
+  format="latex",
+  booktabs = TRUE,
+  col.names=c("Category", "Number of Itens")
+) %>%
+  kable_styling(font_size = 10, latex_options = "hold_position")
 ```
 
-This means the column should be converted to a factor and treated as a categorical variable in the model. Given that categorical variables create a separate parameter in a model for each unique category, leaving this column in its current form may create a very complex model. We could try grouping some categories together (perhaps categories with similar median prices), or rely on our model selection procedure to show us which parameters can be dropped from them model.
+This means the column should be converted to a factor and treated as a categorical variable in the model. Given that categorical variables create a separate parameter in a model for each unique category, leaving this column in its current form may create a very complex model. We will rely on our model selection procedure to show us which parameters can be dropped from them model.
 
 ### Price
 
@@ -118,8 +124,9 @@ The `sellable_online` column is a binary variable indicating whether the item ca
 raw_dataset %>%
   group_by(sellable_online) %>%
   summarise(number_of_items=n()) %>%
+  mutate(sellable_online=if_else(sellable_online, "Sellable Online", "Not Sellable Online")) %>%
   arrange(desc(number_of_items)) %>%
-  kable( caption = '\\label{tab:sellable} The number of items available or unavailable online.', format="latex", booktabs=TRUE) %>%
+  kable( caption = '\\label{tab:sellable} The number of items available or unavailable online.', format="latex", booktabs=TRUE, col.names=c("", "Number of Items")) %>%
    kable_styling(font_size = 10, latex_options = "hold_position")
 ```
 
@@ -131,8 +138,9 @@ The `other_colors` column is another binary variable, taking the value "yes" whe
 raw_dataset %>%
   group_by(other_colors) %>%
   summarise(number_of_items=n()) %>%
+  mutate(other_colors=if_else(other_colors=="Yes", "Available in Other Colours", "Not Available in Other Colours")) %>%
   arrange(desc(number_of_items)) %>%
-  kable( caption = '\\label{tab:colours} The number of items available or unavailable in other colours.', format="latex", booktabs=TRUE) %>%
+  kable( caption = '\\label{tab:colours} The number of items available or unavailable in other colours.', format="latex", booktabs=TRUE, col.names=c("", "Number of Items")) %>%
    kable_styling(font_size = 10, latex_options = "hold_position")
 ```
 
@@ -142,14 +150,18 @@ These three variables describe the physical dimensions of each item, measured in
 
 #### Depth
 
-From figure \ref{fig:dims_1}, it appears that the most common values are between 20 and 60cm, with the peak being somewhere between 30 and 50cm. The frequency of depths drops off quickly above 60cm, apart from a spike at the 90-100cm bin. There are a few items with depths of greater than 150cm, but most of the distribution occurs below 100cm.
+From figure \ref{fig:dims_1}, it appears that the most common values are between 20 and 60cm, with the peak being somewhere between 30 and 50cm. The frequency of depths drops off quickly above 60cm, apart from a spike in the 90-100cm bin. There are a few items with depths of greater than 150cm, but most of the distribution occurs below 100cm.
 
-```{r dims_fig_1, out.width="70%",  fig.align = "center", fig.pos = "H", fig.cap = "\\label{fig:dims_1} The distribution of depth measurements in cm. Each bin covers a 10cm range."}
+```{r dims_fig_1, out.width="70%",  fig.align = "center", fig.pos = "H", fig.cap = "\\label{fig:dims_1} The distribution of depth measurements in cm. Each bin covers a 10cm range. The blue bars indicate the number of sofas and armchairs in each bin. The grey part of the bar shows the number of all other items."}
 
-ggplot(data=raw_dataset, mapping=aes(x=depth)) + 
+raw_dataset %>%
+  mutate(category=category == "Sofas & armchairs") %>%
+  ggplot(mapping=aes(x=depth, fill=category)) + 
   geom_histogram(binwidth=10, center=5) +
   xlab("Depth (cm)") +
-  ylab("Number of items")
+  ylab("Number of items") + 
+  scale_fill_manual(values=c("#999999", "#619CFF")) +
+  theme(legend.position = "none")
 
 ggsave(device="svg", filename="depth_hist.svg", path="plots")
 ```
@@ -165,12 +177,16 @@ raw_dataset %>%
   summarise(count=n()) %>%
   pivot_wider(id_cols=is_90_100, names_from=is_sofa, values_from=count) %>%
   rename(is_sofa="TRUE", is_not_sofa="FALSE") %>%
-  mutate(total=is_sofa+is_not_sofa, sofa_proportion=round(is_sofa/total, 2)) %>%
+  mutate(
+    total=is_sofa+is_not_sofa,
+    sofa_proportion=round(is_sofa/total, 2),
+    is_90_100=if_else(is_90_100, "Depth Between 90 & 100cm", "Depth Less Than 90cm or Greater Than 100cm")
+    ) %>%
   select(is_90_100, total, sofa_proportion) %>%
-  kable( caption = '\\label{tab:sofa_prop} The proportion of items with depth between 90 and 100cm that are sofas, compared to items outside this depth range.', format="latex", booktabs=TRUE) %>%
+  kable( caption = '\\label{tab:sofa_prop} The proportion of items with depth between 90 and 100cm that are sofas, compared to items outside this depth range.', format="latex", booktabs=TRUE, col.names=c("", "Number of Items", "Sofa Proportion")) %>%
    kable_styling(font_size = 10, latex_options = "hold_position")
 ```
-The spike in depth between 90cm and 100cm is explained by a large number of sofas having depths in this range, as can be seen from table \ref{tab:sofa_prop}
+The unusually large number of items with depth between 90cm and 100cm is explained by a large number of sofas having depths in this range, as can be seen from \ref{fig:dims_1}. More precisely, table \ref{tab:sofa_prop} shows that 70% of the items in this depth range are sofas or armchairs, compared to 7% in the rest of the distribution. Items like these may tend to have depths in this range to accommodate cushions, as well as a sitting person.
 
 ```{r depth_outliers}
 raw_dataset %>%
@@ -183,22 +199,36 @@ raw_dataset %>%
   summarise(count=n()) %>%
   pivot_wider(id_cols=is_outlier, names_from=is_sofa, values_from=count) %>%
   rename(is_sofa="TRUE", is_not_sofa="FALSE") %>%
-  mutate(total=is_sofa+is_not_sofa, sofa_proportion=round(is_sofa/total, 2)) %>%
+  mutate(
+    total=is_sofa+is_not_sofa, 
+    sofa_proportion=round(is_sofa/total, 2),
+    is_outlier=if_else(is_outlier, "Depth Greater Than 150cm", "Depth Less Than 150cm")
+    ) %>%
   select(is_outlier, total, sofa_proportion) %>%
-  kable( caption = '\\label{tab:sofa_outlier_prop} The proportion of items with depth between 90 and 100cm that are sofas, compared to items outside this depth range.', format="latex", booktabs=TRUE) %>%
+  kable( caption = '\\label{tab:sofa_outlier_prop} The proportion of items with depth between 90 and 100cm that are sofas, compared to items outside this depth range.', format="latex", booktabs=TRUE, col.names=c("", "Number of Items", "Sofa Proportion")) %>%
    kable_styling(font_size = 10, latex_options = "hold_position")
 ```
-From table \ref{tab:sofa_outlier_prop}, it is evident that the large depth values are also largely because of sofas and armchairs.
+It can also be seen in figure \ref{fig:dims_1} that the outlying values above 150cm are mostly composed of sofas and armchairs. Table \ref{tab:sofa_outlier_prop} shows the exact proportions of items above and below 150cm in depth that are sofas and armchairs. From these numbers, we can see that items of this category are over represented at depth values over 150cm.
 
 
 #### Height
 
 Figure \ref{fig:dims_2} shows that height is distributed more widely than depth, with some amount of the distribution present from 0 to 250cm. and There are typically 10-30 items in each of the bins between 30 and 110cm, apart from a strong peak between 70 and 90cm. Outside that range, there are typically between 1 and 10 items per bin throughout the variable range.
 
-```{r dims_fig_2, out.width="70%",  fig.align = "center", fig.pos = "H", fig.cap = "\\label{fig:dims_2}The distribution of height measurements in cm. Each bin covers a 10cm range."}
-ggplot(data=raw_dataset, mapping=aes(x=height)) + 
+```{r dims_fig_2, out.width="70%",  fig.align = "center", fig.pos = "H", fig.cap = "\\label{fig:dims_2} The distribution of height measurements in cm. Each bin covers a 10cm range. The blue component of each bar shows the number of items in each bin that are sofas, armchairs, tables, desks or chairs. The yellow part of each bar shows the number of wardrobes, bookcases or shelving units in each bin. The grey part of the bar shows the number of all other items."}
+
+raw_dataset %>%
+  mutate(
+    is_seating=category %in% c("Sofas & armchairs", "Tables & desks", "Chairs"),
+    is_large_storage=category %in% c("Wardrobes", "Bookcases & shelving units"),
+    category_tmp=if_else(is_seating, "Seating", "Other"),
+    category=if_else(is_large_storage, "Storage", category_tmp)
+    ) %>%
+  ggplot(mapping=aes(x=height, fill=category)) + 
   geom_histogram(binwidth=10, center=5) +
-  xlab("Height (cm)")
+  xlab("Height (cm)") +
+  scale_fill_manual(values=c("#999999", "#619CFF", "#FFCC33")) +
+  theme(legend.position = "none")
 
 
 ggsave(device="svg", filename="height_hist.svg", path="plots")
@@ -217,15 +247,20 @@ raw_dataset %>%
   mutate(
     total= Chairs + Other + Sofas + Tables,
     chair_prop=round(Chairs/total, 2),
-    other_prop=round(Other/total, 2),
     sofa_prop=round(Sofas/total, 2),
-    table_prop=round(Tables/total, 2)
+    table_prop=round(Tables/total, 2),
+    is_peak=if_else(is_peak, "70 - 90", "< 70 or > 90")
   ) %>%
-  select(is_peak, total, chair_prop, other_prop, sofa_prop, table_prop) %>%
-  kable( caption = '\\label{tab:height_peak_prop} The proportion of items with height between 70 and 90cm that are sofas, chairs or tables compared to items outside this height range.', format="latex", booktabs=TRUE) %>%
+  select(is_peak, total, chair_prop, sofa_prop, table_prop) %>%
+  kable(
+    caption = '\\label{tab:height_peak_prop} The proportion of items with height between 70 and 90cm that are sofas, armchair, chairs, tables or desks compared to items outside this height range.', 
+    format="latex", 
+    booktabs=TRUE,
+    col.names=c("Height (cm)", "Number of Items", "Chair Proportion", "Sofa Proportion", "Table Proportion")
+    )  %>%
    kable_styling(font_size = 10, latex_options = "hold_position")
 ```
-Table \ref{tab:height_peak_prop} shows the proportion of items in the peak of the height distribution that are chairs, sofas or tables or none of these ("other" items), compared to items outside this height range. We can see that sofas, chairs and particularly tables are overrepresented in this height range compared to elsewhere. This makes sense, as tables need to be of roughly a certain height in order to be useful to most people. Items for sitting on will likely be a similar height to tables, as we typically sit when using a table.
+From figure \ref{fig:dims_2}, we can see that a significant proportion of the items between 70 and 90cm in height are in the "Chairs", "Sofa & armchairs" or "Tables & desks" categories, whereas a smaller proportion of items outside this height range appear to fall into these categories. Table \ref{tab:height_peak_prop} shows the proportion of items in the peak of the height distribution that fall into the aforementioned categories, compared to items outside this height range. Within this height range, 15% of items are chairs (compared to 6% elsewhere), 16% are sofas or armchairs (compared to 10% elsewhere) and 31% are tables or desks (compared to 8% elsewhere). This pattern makes sense, as tables need to be of roughly a certain height in order to be useful to most people. Items for sitting on will likely be a similar height to tables, as we typically sit when using a table.
 
 ```{r height_large}
 raw_dataset %>%
@@ -242,26 +277,38 @@ raw_dataset %>%
     total= Wardrobes + Bookcases + Other,
     wardrobe_prop=round(Wardrobes/total, 2),
     other_prop=round(Other/total, 2),
-    bookcase_prop=round(Bookcases/total, 2)
+    bookcase_prop=round(Bookcases/total, 2),
+    is_upper=if_else(is_upper, "Height Greater Than 165cm", "Height Less than 165cm")
   ) %>%
-  select(is_upper, total, wardrobe_prop, other_prop, bookcase_prop) %>%
-  kable( caption = '\\label{tab:height_upper_prop} The proportion of items over 165cm in height that are wardrobes, bookcases or other items, compared to the proportion for items below 165cm in height.', format="latex", booktabs=TRUE) %>%
+  select(is_upper, total, wardrobe_prop, bookcase_prop) %>%
+  kable( caption = '\\label{tab:height_upper_prop} The proportion of items over 165cm in height that are wardrobes, bookcases or other items, compared to the proportion for items below 165cm in height.', format="latex", booktabs=TRUE,
+    col.names=c("", "Number of Items", "Wardrobe Proportion", "Bookcase Proportion")) %>%
   kable_styling(font_size = 10, latex_options = "hold_position")
 ```
-Evidently, from table \ref{tab:height_upper_prop}, wardrobes and bookcases form a significant proportion of the items over 165cm in height, accounting for 80% of such items in the dataset. They are much less common at lower heights, which is to be expected given that these tend to be used for storing large objects (in the case of wardrobes) or centralising the storage of many small objects (in the case of bookcases).
+Figure \ref{fig:dims_2} also shows that the upper part of the height range is dominated by items in the "Wardrobes" and "Bookcases & shelving units" categories. From table \ref{tab:height_upper_prop}, wardrobes and bookcases form a significant proportion of the items over 165cm in height, accounting for 80% of such items in the dataset. They are much less common at lower heights, which is to be expected given that these tend to be used for storing large objects (in the case of wardrobes) or centralising the storage of many small objects (in the case of bookcases).
 
 #### Width
 
 The distribution of width measurements is shown in figure \ref{fig:dims_3}. This distribution is somewhat similar to the distribution for depth in figure \ref{fig:dims_1}. There is a large peak roughly between 60 and 80cm, with a long tail to the right. The tail is heavier here than for depth, with items appearing all the way out to 360cm.
-```{r dims_fig_3, out.width="70%",  fig.align = "center", fig.pos = "H", fig.cap = "\\label{fig:dims_3}The distribution of width measurements in cm. Each bin covers a 20cm range."}
-ggplot(data=raw_dataset, mapping=aes(x=width)) + 
+```{r dims_fig_3, out.width="70%",  fig.align = "center", fig.pos = "H", fig.cap = "\\label{fig:dims_3}The distribution of width measurements in cm. Each bin covers a 20cm range. The yellow bars represent the number of chairs in each bin and the blue bars represent the number of tables or desks in each bin. The grey bars represent the number of all other items."}
+
+raw_dataset %>% 
+  mutate(
+    is_chair=category =="Chairs",
+    is_table = category == "Tables & desks",
+    category_tmp=if_else(is_chair, "Chair", "Other"),
+    category=if_else(is_table, "Table", category_tmp),
+    category=factor(category, levels=c("Other", "Chair", "Table"))
+    ) %>%
+  ggplot(mapping=aes(x=width, fill=category)) + 
   geom_histogram(binwidth=20, center=10) +
-  xlab("Width (cm)")
+  xlab("Width (cm)") +
+  scale_fill_manual(values=c("#999999","#FFCC33",  "#619CFF")) +
+  theme(legend.position = "none")
 
 ggsave(device="svg", filename="width_hist.svg", path="plots")
 ```
-
-These distributions may have more structure hidden in them, as they include a range of items of many different categories. It is reasonable to expect that the dimensions of items in different categories would be distributed differently. For instance, we would expect wardrobes to typically be taller than chairs. We can examine the distributions of these variables for some of the larger categories listen in table \ref{tab:categories}.
+The distribution of width (shown in figure \ref{fig:dims_3}) appears to be more regular than that of depth or height. however, items are not uniformly represented throughout the distribution, as items from the "Chairs" and "Tables and desks" categories are present close to the peak of the distribution but absent in the tails.
 
 ```{r width_peak}
 raw_dataset %>%
@@ -277,15 +324,17 @@ raw_dataset %>%
   mutate(
     total= Chairs + Tables + Other,
     chair_prop=round(Chairs/total, 2),
-    other_prop=round(Other/total, 2),
-    table_prop=round(Tables/total, 2)
+    table_prop=round(Tables/total, 2),
+    is_peak=if_else(is_peak, "40 - 80", "< 40 or > 80")
   ) %>%
-  select(is_peak, total, chair_prop, other_prop, table_prop) %>%
-  kable( caption = '\\label{tab:width_peak_prop} The proportion of items between 40 and 80cm in width that are chairs, tables or something else compared to these proportions for items outside this width range.', format="latex", booktabs=TRUE) %>%
+  select(is_peak, total, chair_prop, table_prop) %>%
+  kable( caption = '\\label{tab:width_peak_prop} The proportion of items between 40 and 80cm in width that are chairs or tables and desks compared to these proportions for items outside this width range.', format="latex", booktabs=TRUE,
+    col.names=c("Width (cm)", "Number of Items", "Chair Proportion", "Table Proportion")) %>%
   kable_styling(font_size = 10, latex_options = "hold_position")
 ```
-From table \ref{tab:width_peak_prop}, it can be seen that chairs and tables form a much larger proportion of the items in the peak of the width distribution (between 40 and 80cm) than outside this range.
+From table \ref{tab:width_peak_prop}, it can be seen that chairs and tables form a larger proportion of the items in the peak of the width distribution (between 40 and 80cm) than outside this range.
 
+These distributions may have more structure hidden in them, as they include a range of items of many different categories. It is reasonable to expect that the dimensions of items in different categories would be distributed differently. For instance, we would expect wardrobes to typically be taller than chairs. We can examine the distributions of these variables for some of the larger categories listed in table \ref{tab:categories}.
 
 ### Dimensions of Different Categories
 The distributions of depth, height and width for each category are shown in figures \ref{fig:depth_by_category}, \ref{fig:height_by_category} and \ref{fig:width_by_category}, respectively. The top plots show the 8 largest categories and the bottom plots show the rest. 
@@ -361,7 +410,7 @@ grid.arrange(width1, width2, ncol=1)
 ggsave(width1, device="svg", filename="width_box_top.svg", path="plots")
 ggsave(width2, device="svg", filename="width_box_bottom.svg", path="plots")
 ```
-Lastly, figure \ref{fig:width_by_category} shows the boxplots of width for each category. In the upper plot, the medians range from approximately 50cm ("Chairs" and "Outdoor furniture") to much larger values: "Beds" and "Wardrobes" have medians of around 150cm and "Sofas & armchairs" has a median of over 200cm. The ranges of width values for the categories in this plot are often quite wide, with some tanging from below 50cm to over 300cm. For the lower plot, the medians appear a little more consistent, typically around 50cm, although "Chests of drawers & drawer units", "Room dividers" and "Sideboards, buffets & console tables" have noticeably larger medians. 
+Lastly, figure \ref{fig:width_by_category} shows the boxplots of width for each category. In the upper plot, the medians range from approximately 50cm ("Chairs" and "Outdoor furniture") to much larger values: "Beds" and "Wardrobes" have medians of around 150cm and "Sofas & armchairs" has a median of over 200cm. The ranges of width values for the categories in this plot are often quite wide, for instance "Sofas & armchairs" ranges from below 50cm to over 300cm. For the lower plot, the medians appear a little more consistent, typically around 50cm, although "Chests of drawers & drawer units", "Room dividers" and "Sideboards, buffets & console tables" have noticeably larger medians. 
 
 
 # Missing Data
@@ -372,14 +421,14 @@ null_skim <- skim_with(base = sfl(n_missing=n_missing, complete_rate=complete_ra
 raw_dataset %>% 
   null_skim() %>%
   select(-skim_type) %>%
-  kable( caption = '\\label{tab:nulls}', format="latex", booktabs=TRUE) %>%
+  kable( caption = '\\label{tab:nulls} The number of missing values in each column and the proportion of each column that is not missing.', format="latex", booktabs=TRUE, col.names=c("Variable Name", "Number of Missing Values", "Proportion of Non-Missing Values")) %>%
   kable_styling(font_size = 10, latex_options = "hold_position")
 
 drop_proportion <- (raw_dataset %>%
   filter(if_any(c("depth", "height", "width"), is.na)) %>%
   nrow()) / nrow(raw_dataset)
 ```
-Some of the items in the dataset are missing values for some variables, as can be seen from the first row of table \ref{tab:head}. Table \ref{tab:nulls} shows the number of missing values in each column, along with the proportion of items that are not missing a value in that column. The only variables with missing information are the ones describing the dimensions of the item: depth, height and width. These missing values must be handled somehow if the data is to be used for modelling. The simplest way to treat this data would be to drop all rows which are missing one or more values. However, it can be seen from \ref{tab:head} that only 60.2% of rows are not missing their depth value. This means that dropping rows with missing values would remove at least 39.8% of the dataset. In fact, taking all three dimension variables into account, this cleaning strategy would remove `r round(100 * drop_proportion, 1)`% of the rows in the dataset. This seems like too much data to lose, so we must impute the missing values somehow. The distributions of these variables have some slightly irregular features and outliers, so mean imputation may be inappropriate. The median may be a more robust approach, although a global median for each variable may also be inappropriate as the distribution of each variable can differ strongly between item categories, as shown in figures \ref{fig:depth_by_category}, \ref{fig:height_by_category} and \ref{fig:width_by_category}. Therefore, we can try cleaning these columns by assigning the median of the relevant item category in place of missing values.
+Some of the items in the dataset are missing values for some variables, as can be seen from the first row of table \ref{tab:head}. Table \ref{tab:nulls} shows the number of missing values in each column, along with the proportion of items that are not missing a value in that column. The only variables with missing information are the ones describing the dimensions of the item: depth, height and width. These missing values must be handled somehow if the data is to be used for modelling. The simplest way to treat this data would be to drop all rows which are missing one or more values. However, it can be seen from \ref{tab:nulls} that only 60.2% of rows are not missing their depth value. This means that dropping rows with missing values would remove at least 39.8% of the dataset. In fact, taking all three dimension variables into account, this cleaning strategy would remove `r round(100 * drop_proportion, 1)`% of the rows in the dataset. This seems like too much data to lose, so we must impute the missing values somehow. The distributions of these variables have some slightly irregular features and outliers, so mean imputation may be inappropriate. The median may be a more robust approach, although a global median for each variable may also be inappropriate as the distribution of each variable can differ strongly between item categories, as shown in figures \ref{fig:depth_by_category}, \ref{fig:height_by_category} and \ref{fig:width_by_category}. Therefore, we can try cleaning these columns by assigning the median of the relevant item category in place of missing values.
 
 #### Multiple Missing Values
 ```{r all_missing_data}
@@ -391,15 +440,15 @@ In some cases, all 3 dimension variables are missing from an item. This occurs i
 
 ### Cleaning the Data
 We are now in a position to prepare the dataset for modelling. The processing steps to be done are:
+
 * Discard the `item_id` column
 * Convert `category`, `sellable_online` and `other_color` to be factors
 * Convert the `price` column into a binary target variable based on whether it is greater than 1000SR
 * Drop any rows where all 3 of `depth`, `height` and `width` are missing
 * Replace any remaining missing values of `depth`, `height` and `width` with the median value for their category.
 
-These steps are applied below:
-
-```{r apply_cleaning_steps, echo=TRUE}
+Having applied these steps, we can see the features of the cleaned data. Comparing tables \ref{tab:head} and \ref{tab:cleaned} shows that the transformations appear to have worked: the price is now a binary variable matching what we'd expect from the value in table \ref{tab:head} and the missing value for `depth` in the first row has been replaced, while the categorical variables appear unchanged apart from being converted into factors in the background. 
+```{r apply_cleaning_steps}
 cleaned_dataset <- raw_dataset %>%
   # filter out rows missing all 3 columns
   filter(!if_all(c("depth", "height", "width"), is.na)) %>% 
@@ -432,5 +481,3 @@ head(cleaned_dataset, n=5) %>%
   kable(caption = '\\label{tab:cleaned} The features of the first five items in the dataset after the cleaning steps have been applied.', format="latex", booktabs=TRUE) %>%
    kable_styling(font_size = 10, latex_options = "hold_position")
 ```
-
-Finally we can see the features of the cleaned data. Comparing tables \ref{tab:head} and \ref{tab:cleaned} shows that the transformations appear to have worked: the price is now a binary variable matching what we'd expect from the value in table \ref{tab:head} and the missing value for `depth` in the first row has been replaced, while the categorical variables appear unchanged apart from being converted into factors in the background. 
