@@ -1,10 +1,10 @@
 ---
 title: "Group 23 Analysis"
 author: "Group 23"
-date: "2023-03-08"
 output:
   pdf_document:
     latex_engine: xelatex
+    extra_dependencies: "amstext"
 ---
 
 ```{r setup, include=FALSE}
@@ -21,9 +21,16 @@ library(stringr)
 library(skimr)
 
 set.seed(23)
-```
 
-## Initial Data Cleaning and Exploration
+save_plots = FALSE
+```
+# Introduction 
+This project aims to determine which features of items sold by IKEA Saudi Arabia determine whether the items cost more or less than 1000 Saudi Riyals. 
+This will be done by carrying out a binary logistic regression on a dataset containing information about items available from the retailer.
+The regression parameters will then give us information on which variables affect the probability of the price being above the threshold.
+Among those variables that do affect the probability, the relative size of the regression parameters will also allow us to see which variables affect the probability more than others.
+
+# Initial Data Cleaning and Exploration
 
 Having inspected the .csv file, we can see that there are some cleaning steps to be done before the data is usable for modelling.
 First, let us look at the first rows of the dataset:
@@ -90,8 +97,10 @@ price1 <- ggplot(data=raw_dataset, mapping=aes(x=price)) +
   xlab("Item Price (SR)") +
   ylab("Number of Items")
 
+if (save_plots){
+  ggsave(plot=price1, device="svg", filename="price_hist_A.svg", path="plots")
+}
 
-ggsave(plot=price1, device="svg", filename="price_hist_A.svg", path="plots")
 price1 <- price1 + annotate("text", x=get_label_x(price1), y=get_label_y(price1), label="A", size=8)
 
 price_bucket_counts <- raw_dataset %>%
@@ -107,7 +116,9 @@ price2 <- ggplot(data=price_bucket_counts,
   xlab("Item Price (SR)") +
   ylab("") # Get rid of second y label, the label from the first graph works for both
 
-ggsave(plot=price2, device="svg", filename="price_hist_B.svg", path="plots")
+if (save_plots){
+  ggsave(plot=price2, device="svg", filename="price_hist_B.svg", path="plots")
+}
 price2 <- price2 + annotate("text", x=get_label_x(price2), y=get_label_y(price2), label="B", size=8)
 
 grid.arrange(price1, price2, ncol=2)
@@ -163,7 +174,9 @@ raw_dataset %>%
   scale_fill_manual(values=c("#999999", "#619CFF")) +
   theme(legend.position = "none")
 
-ggsave(device="svg", filename="depth_hist.svg", path="plots")
+if (save_plots){
+  ggsave(device="svg", filename="depth_hist.svg", path="plots")
+}
 ```
 
 ```{r depth_spike}
@@ -230,8 +243,9 @@ raw_dataset %>%
   scale_fill_manual(values=c("#999999", "#619CFF", "#FFCC33")) +
   theme(legend.position = "none")
 
-
-ggsave(device="svg", filename="height_hist.svg", path="plots")
+if (save_plots){
+  ggsave(device="svg", filename="height_hist.svg", path="plots")
+}
 ```
 ```{r height_spike}
 raw_dataset %>%
@@ -306,7 +320,9 @@ raw_dataset %>%
   scale_fill_manual(values=c("#999999","#FFCC33",  "#619CFF")) +
   theme(legend.position = "none")
 
-ggsave(device="svg", filename="width_hist.svg", path="plots")
+if (save_plots){
+  ggsave(device="svg", filename="width_hist.svg", path="plots")
+}
 ```
 The distribution of width (shown in figure \ref{fig:dims_3}) appears to be more regular than that of depth or height. however, items are not uniformly represented throughout the distribution, as items from the "Chairs" and "Tables and desks" categories are present close to the peak of the distribution but absent in the tails.
 
@@ -359,8 +375,10 @@ depth2 <- raw_dataset %>%
   xlab("Category") +
   ylab("Depth (cm)")
 
-ggsave(depth1, device="svg", filename="depth_box_top.svg", path="plots")
-ggsave(depth1, device="svg", filename="depth_box_bottom.svg", path="plots")
+if (save_plots){ 
+  ggsave(depth1, device="svg", filename="depth_box_top.svg", path="plots")
+  ggsave(depth1, device="svg", filename="depth_box_bottom.svg", path="plots")
+}
 grid.arrange(depth1, depth2, ncol=1)
 ```
 From the upper plot in figure \ref{fig:depth_by_category} we can see that the median depths for the more common categories are often around 50cm. The clear exceptions to this are the "Beds", "Outdoor Furniture" and "Sofas & Armchairs" categories. For the less common categories, the median depth is also typically close to 50cm, except for "Nursery Furniture" and "Trolleys". These categories have only a small number of items in each, so the distributions are likely to be noisier than for more numerous categories. There is also some difference in the range of these distributions, particularly for "Beds". This may be due to double and single beds both being included in this category.
@@ -382,9 +400,10 @@ height2 <- raw_dataset %>%
   xlab("Category") +
   ylab("Height (cm)")
 
-
-ggsave(height1, device="svg", filename="height_box_top.svg", path="plots")
-ggsave(height2, device="svg", filename="height_box_bottom.svg", path="plots")
+if (save_plots){
+  ggsave(height1, device="svg", filename="height_box_top.svg", path="plots")
+  ggsave(height2, device="svg", filename="height_box_bottom.svg", path="plots")
+}
 grid.arrange(height1, height2, ncol=1)
 ```
 Figure \ref{fig:height_by_category} shows the boxplots of height for each category. In the upper plot, we can see that the median height for several of the categories is approximately 75cm, with the exception of "Bookcases & shelving units", "Cabinets & cupboards" & "Wardrobes". Interestingly, the median height of wardrobes is very close to the maximum height for this category, indicating that there are many items with the same or similar height. In the lower plot, the median heights are typically somewhat similar, between 75 and 100cm with the exception of "Room dividers", "Sideboards, buffets & console tables" (with medians over 100cm) and "TV & media furniture" with median height around 50cm.
@@ -406,9 +425,13 @@ width2 <- raw_dataset %>%
   xlab("Category") +
   ylab("Width (cm)")
 
+if (save_plots){
+  ggsave(width1, device="svg", filename="width_box_top.svg", path="plots")
+  ggsave(width2, device="svg", filename="width_box_bottom.svg", path="plots")
+  
+}
+
 grid.arrange(width1, width2, ncol=1)
-ggsave(width1, device="svg", filename="width_box_top.svg", path="plots")
-ggsave(width2, device="svg", filename="width_box_bottom.svg", path="plots")
 ```
 Lastly, figure \ref{fig:width_by_category} shows the boxplots of width for each category. In the upper plot, the medians range from approximately 50cm ("Chairs" and "Outdoor furniture") to much larger values: "Beds" and "Wardrobes" have medians of around 150cm and "Sofas & armchairs" has a median of over 200cm. The ranges of width values for the categories in this plot are often quite wide, for instance "Sofas & armchairs" ranges from below 50cm to over 300cm. For the lower plot, the medians appear a little more consistent, typically around 50cm, although "Chests of drawers & drawer units", "Room dividers" and "Sideboards, buffets & console tables" have noticeably larger medians. 
 
@@ -457,7 +480,7 @@ cleaned_dataset <- raw_dataset %>%
     category=as.factor(category), 
     sellable_online=as.factor(sellable_online), 
     other_colors=as.factor(other_colors),
-    price=as.integer(if_else(price >= 1000, 1, 0))
+    price=factor(if_else(price >= 1000, 1, 0), levels=c(0, 1), labels=c("Below 1000SR", "Above 1000SR"))
     )
 
 # replacing missing values will be more complicated
@@ -481,3 +504,184 @@ head(cleaned_dataset, n=5) %>%
   kable(caption = '\\label{tab:cleaned} The features of the first five items in the dataset after the cleaning steps have been applied.', format="latex", booktabs=TRUE) %>%
    kable_styling(font_size = 10, latex_options = "hold_position")
 ```
+
+## Relationship Between Variables and Response
+
+The data is now ready to be used for modelling. Before fitting the model, we can examine the relationship between the covariates and the response variable.
+
+### Category
+
+First, we can see the proportion of items in each category that are above or below 1000SR, shown in figure \ref{fig:cat_y_dist}. There is a lot of variation between the different categories, even between categories with many items. For instance, Sofas & armchairs has the greatest proportion of items above 1000SR (around 75%), whereas for Chairs the proportion is roughly 25%. From this, we may expect that category will be a useful predictor of whether an item has price above 1000SR.
+
+```{r cat_y_dist_fig,  fig.align = "center", fig.pos = "H", fig.cap = "\\label{fig:cat_y_dist} The proportion of items in each category with price below or above 1000SR."}
+cleaned_dataset %>% ggplot(mapping=aes(x=str_trunc(as.character(category), 9, ell="..."), fill=price)) +
+    geom_bar(position="fill") +
+  theme(axis.text.x = element_text(angle = 90, vjust=0.4)) + 
+  xlab("Category") + 
+  ylab("Proportion")
+
+if (save_plots){
+  ggsave(device="svg", filename="category_y_dist.svg", path="plots")
+}
+```
+
+### Sellable Online
+As figure \ref{fig:sell_y_dist} shows, all items which are not available online have price below 1000SR. This deviation from the population price distribution is not surprising, as there are only 5 items in this group (see table \ref{tab:sellable}). As a result, it seems unlikely that this variable will be useful in predicting the response variable.
+
+```{r sell_y_dist_fig,  fig.align = "center", fig.pos = "H", fig.cap = "\\label{fig:sell_y_dist} The proportion of items with price below or above 1000SR, grouped by whether they are sellable online or not."}
+cleaned_dataset %>% 
+  mutate(sellable_online = if_else(as.logical(sellable_online), "Sellable Online", "Not Sellable Online")) %>%
+  ggplot(mapping=aes(x=sellable_online, fill=price)) +
+  geom_bar(position="fill") +
+  xlab("") + 
+  ylab("Proportion")
+
+if (save_plots){
+  ggsave(device="svg", filename="sellable_online_y_dist.svg", path="plots")
+}
+```
+
+### Other Colors
+
+Figure \ref{fig:col_y_dist} shows the distribution of response variable values for items grouped by whether they are available in other colors or not. It appears that items available in multiple colors are more likely to have prices above 1000SR (about 45%) than those available in just one color (closer to 25%). Based on this, this variable may be a moderately strong predictor of whether the item's price is above the threshold.
+```{r col_y_dist_fig,  out.width="70%", fig.align = "center", fig.pos = "H", fig.cap = "\\label{fig:col_y_dist} The proportion of items with price below or above 1000SR, grouped by whether they are available in other colors or not."}
+cleaned_dataset %>%
+  mutate(other_colors=if_else(other_colors=="Yes", " Available in Other Colors", "Not Available in Other Colors")) %>%
+  ggplot(mapping=aes(x=other_colors, fill=price)) +
+  geom_bar(position="fill") +
+  xlab("") + 
+  ylab("Proportion")
+
+if (save_plots){
+  ggsave(device="svg", filename="other_colors_y_dist.svg", path="plots")
+}
+```
+
+### Depth
+For each value of the response variable, figure \ref{fig:depth_y_dist} shows a boxplot of the depth distribution. The upper quartile for items in the lower price bracket is just over 50cm, whereas the lower quartile of the more expensive items is just below 50cm and the upper quartile is near 100cm. This suggests that an item with a large depth value will have a price above 1000SR.
+```{r depth_y_dist_fig,  out.width="70%", fig.align = "center", fig.pos = "H", fig.cap = "\\label{fig:depth_y_dist} Boxplots of depth for items with price below or above 1000SR."}
+ggplot(cleaned_dataset, aes(x = price, y = depth, fill = price)) +
+  geom_boxplot() +
+  labs(x = "Price", y = "Depth (cm)")+ 
+  theme(legend.position = "none")
+
+if (save_plots){
+  ggsave(device="svg", filename="depth_y_dist.svg", path="plots")
+}
+```
+
+### Height
+Similarly, we can plot the height distributions for the two values of the response variable. This is done in figure \ref{fig:height_y_dist}. Again, a greater height appears to indicate a greater probability of an item being in the higher price range. However, the distinction between the groups is less clear here, with the upper quartile of the "Below" group entirely overlapping the lower quartile of the "Above" group and outliers from the "Below" group extending all the way to the top of the range of the "Above" group. This variable may be a useful indicator of the response variable, but perhaps to a lesser degree than depth.
+
+```{r height_y_dist_fig,  out.width="70%", fig.align = "center", fig.pos = "H", fig.cap = "\\label{fig:height_y_dist} Boxplots of height for items with price below or above 1000SR."}
+ggplot(cleaned_dataset, aes(x = price, y = height, fill = price)) +
+  geom_boxplot() +
+  labs(x = "Price", y = "Height")+ 
+  theme(legend.position = "none")
+
+if (save_plots){
+  ggsave(device="svg", filename="height_y_dist.svg", path="plots")
+}
+```
+
+### Width
+
+Lastly, we plot the distribution of width for the two values of the response variable in figure \ref{fig:width_y_dist}. This shows a similar pattern to figures \ref{fig:depth_y_dist} and \ref{fig:height_y_dist}: The lower priced items generally have smaller width values. The difference between the groups is more distinct than for height, but there are still outliers from the lower priced group extending through much of the higher priced group's range. This variable may be a fairly strong predictor of the response: perhaps stronger than height but weaker than depth.
+
+```{r width_y_dist_fig,  out.width="70%", fig.align = "center", fig.pos = "H", fig.cap = "\\label{fig:width_y_dist} Boxplots of width for items with price below or above 1000SR."}
+ggplot(cleaned_dataset, aes(x = price, y = width, fill = price)) +
+  geom_boxplot() +
+  labs(x = "Price", y = "Width")+ 
+  theme(legend.position = "none")
+
+if (save_plots){
+  ggsave(device="svg", filename="width_y_dist.svg", path="plots")
+}
+```
+# Model Selection
+At last, we can fit some models to investigate our question of interest: determining which variables influence whether an item will cost more than 1000SR. To do this we will fit a binary GLM with the price column as the target variable. The regression coefficients will then give the change in log-odds associated with a unit change in the corresponding covariate. Comparing the coefficients, then, will show us which variables are most important in determining whether an item costs more than 1000SR. The first model to fit will be a model incorporating all of the available covariates.
+
+## Full Model
+
+```{r set_strings}
+# This is a silly workaround, but the latex equation won't knit without it
+s_online <- "sellable_online"
+```
+This model is of the form:
+$$\log\left(\frac{p_i}{1-p_i}\right) = \beta_0 + \sum_{j}^{16}\beta_j\mathbb{I}_{j}(x_{i}) + \beta_{17}\mathbb{I}_{\textrm{sellable}}(x_i) + \beta_{18}\mathbb{I}_{colours}(x_i) + \beta_{19}x_{i, depth} + \beta_{20}x_{i, height} + \beta_{21}x_{i, width}$$
+where:
+
+* $p_i$ is the probability of the i<sup>th</sup> item having price above 1000SR
+* $\beta_0$ is the intercept term
+* $\beta_1, \beta_2, ..., \beta_{21}$ are the regression parameters
+* $\mathbb{I}_1(), \mathbb{I}_2(), ..., \mathbb{I}_{16}()$ are indicator functions evaluating to 1 if the i<sup>th</sup> item is in the corresponding category. For the 17 categories, 16 indicators are required as the baseline category is represented by all indicator functions returning zero.
+* $\mathbb{I}_{\textrm{sellable}}()$ is an indicator function returning 1 if the i<sup>th</sup> item is sellable online and 0 otherwise
+* $\mathbb{I}_{\textrm{colours}}()$ is an indicator function returning 1 if the i<sup>th</sup> item is available in other colors and 0 otherwise
+* $x_{i, depth}, x_{i, height}, x_{i, width}$ are the depth, width and height of the i<sup>th</sup> item in centimetres.
+
+Table \ref{tab:full_model} shows the fitted parameter estimates for this model. We can see that the confidence intervals parameters associated with each of the different category values are all very wide and include zero. This indicates that, when controlling for the other variables in the model, the category has no statistically significant effect on the propability of an item costing more than 1000SR. Given the differences seen in figure \ref{fig:cat_y_dist}, it is surprising that none of the category parameters are significant, but it may be the case that the differences between categories are explained by other variables.
+
+As category contributes a lot of complexity to the model and no significant parameters, we shall drop it and re-fit the model. 
+
+```{r full_model_table, warning=F, message=F}
+# Fit a binary logistic regression model
+model1 <- glm(price ~ category + sellable_online + other_colors + depth + height + width,
+             data = cleaned_dataset, family = binomial(link = "logit"))
+coeffs <- summary(model1)$coefficients[, 1]
+
+knitr::kable(
+  round(cbind(coeffs, confint.default(model1)), 3),
+  format="latex",
+  booktabs=TRUE,
+  caption = '\\label{tab:full_model} The parameter estimates and associated confidence intervals from the first model.',
+  col.names=c("Parameter Estimate", "95% CI Lower Bound", "95% CI Upper Bound")
+  ) %>%
+  kable_styling(font_size = 10)
+```
+
+## Model Without Category
+
+The model fitted here contains all the same terms as the full model, except the terms involving $\beta_1, \beta_2, ..., \beta_{16}$. The parameter estimates are shown in table \ref{tab:mid_model}. The confidence intervals for sellable_online and other_colors, while smaller than they were in the first model, both include zero. Therefore these variables still do not have a significant effect on the log-odds of an item costing more than 1000SR. We can see that depth, width and height all have confidence intervals that do not include zero. We can now fit a model with just these three variables.
+
+```{r mid_model_table, warning=F, message=F}
+# Fit a binary logistic regression model
+model2 <- glm(price ~ sellable_online + other_colors + depth + height + width,
+             data = cleaned_dataset, family = binomial(link = "logit"))
+coeffs <- summary(model2)$coefficients[, 1]
+
+knitr::kable(
+  round(cbind(coeffs, confint.default(model2)), 3),
+  format="latex",
+  booktabs=TRUE,
+  caption = '\\label{tab:mid_model} The parameter estimates and associated confidence intervals from the second model.',
+  col.names=c("Parameter Estimate", "95% CI Lower Bound", "95% CI Upper Bound")
+  ) %>%
+  kable_styling(font_size = 10)
+```
+
+## Model with Only Numeric Variables
+
+```{r size_model_table, warning=F, message=F}
+model3 <- glm(price~height+width+depth, cleaned_dataset, family = "binomial")
+coeffs <- summary(model3)$coefficients[, 1]
+
+knitr::kable(
+  round(cbind(coeffs, confint.default(model3)), 3),
+  format="latex",
+  booktabs=TRUE,
+  caption = '\\label{tab:size_model} The parameter estimates and associated confidence intervals from the third model.',
+  col.names=c("Parameter Estimate", "95% CI Lower Bound", "95% CI Upper Bound")
+  ) %>%
+  kable_styling(font_size = 10)
+```
+
+The final model fitted here is one including only the depth, width and height covariates. These all had significant parameters in the previous model, so we expect them to still be significant now the other variables have been removed. From table \ref{tab:size_model}, we can see that all parameters in this model (including the intercept) have confidence intervals that do not include zero, and are therefore significant at the $\alpha = 0.05$ level.
+
+### Parameter Comparison
+Comparing the parameters, we can see that depth has the largest estimated parameter, with a value of `r round(coeffs["depth"], 3)`. This means that for every extra centimetre in depth, we expect the log-odds of the item costing over 1000SR to increase by `r round(coeffs["depth"], 3)`. This is equivalent to mutliplying the odds of this outcome by `r round(exp(coeffs["depth"]), 3)`. The next largest parameter is for width, which gives the expected log-odds increase per centimetre of width as `r round(coeffs["width"], 3)`, or an odds multiplier of `r round(exp(coeffs["width"]), 3)`. The smallest parameter of the 3 is height, giving a log-odds increase of `r round(coeffs["height"], 3)` (odds multiplier of `r round(exp(coeffs["height"]), 3)`) per centimetre.
+
+The fact that these are the only variables that seem to have an effect on whether the price of the item is greater than 1000SR makes some sense, as the dimensions of the item determine roughly how much material went into making it and how costly it is to transport. The same amount of raw materials would plausibly cost the same regardless of whether you were building a bookcase or a bed. The relative sizes of the parameters is also somewhat expected, given the distributions seen in figures \ref{fig:depth_y_dist}, \ref{fig:height_y_dist} and \ref{fig:width_y_dist}, as the depth distribution was the most clearly separate between the price groups, followed by the width distribution and then the height distribution.
+
+
+# Conclusions
+Fitting binary GLMs to the data and iteratively removing insignificant parameters indicates that the only variables influencing whether an item costs more than 1000 Saudi Riyals, are the depth, width and height of the item. Depth influenced the probability most, followed by width and then height. The category of item did not significantly affect the probability, despite different categories having quite different proportions of items in each price bracket. This may be due to the category correlating with the item size, but this modelling work could be extended to investigate this further. For instance, instead of including a parameter for each category in the model, the category variable could be converted into dummy variables and these variables could be removed one at a time during model selection, rather than all at once. This may lead to some informative categories being retained. As the results here indicate that the model size is the determining factor in whether its price is above 1000SR, a further extension to the work could be to multiply depth, width and height together to create a "volume" variable and fit a model using this covariate. This would indicate whether it is just overall "size" that determines price, and not the individual dimensions separately.
