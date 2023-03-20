@@ -4,7 +4,6 @@ author: "Group 23"
 output:
   pdf_document:
     latex_engine: xelatex
-    extra_dependencies: "amstext"
 ---
 
 ```{r setup, include=FALSE}
@@ -48,7 +47,7 @@ head(raw_dataset, n=5) %>%
 
 The first column, `item_id`, gives a numerical label for each item. This is unlikely to be related to the price of the item, so we should drop it from the dataset. 
 
-### Category
+## Category
 The `category` column is currently presented as a column of strings, but there are a lot of repeated values, as shown in table \ref{tab:categories}
 
 ```{r categories_table}
@@ -71,7 +70,7 @@ knitr::kable(
 
 This means the column should be converted to a factor and treated as a categorical variable in the model. Given that categorical variables create a separate parameter in a model for each unique category, leaving this column in its current form may create a very complex model. We will rely on our model selection procedure to show us which parameters can be dropped from them model.
 
-### Price
+## Price
 
 This column contains the price of the item in Saudi Riyals, and will be the basis for our target variable. Our aim is to estimate the importance of the other variables in predicting whether an item costs more than 1000 Riyals, i.e. whether the item's entry in column is above or below 1000. The distribution of this column is shown in figure \ref{fig:price_hist}.
 
@@ -127,7 +126,7 @@ g <- arrangeGrob(price1, price2, ncol=2)
 
 From these graphs, we can see that the distribution of prices is quite skewed to the right. The first bar of graph A is the largest, so it is most common for items to be priced under 250SR. The bars generally get smaller as the price gets larger, but the distribution has a long tail out to around 9000SR. Graph B shows the number of items below and above 1000SR. It appears that there are around 320 items below 1000SR and around 160 items above 1000SR.
 
-### Sellable Online
+## Sellable Online
 The `sellable_online` column is a binary variable indicating whether the item can be purchased via the internet. Table \ref{tab:sellable} shows that this variable is very unbalanced: almost all of the items are available online. This may limit the usefulness of this variable when predicting the price category, but this will become more clear once the model has been fitted.
 
 ```{r sellable_online}
@@ -141,7 +140,7 @@ raw_dataset %>%
    kable_styling(font_size = 10, latex_options = "hold_position")
 ```
 
-### Other Colors
+## Other Colors
 
 The `other_colors` column is another binary variable, taking the value "yes" when the item is available in other colours and "no" when it is not. Table \ref{tab:colours} shows how many items fit into each group. This column is more balanced than `sellable_online`, with about 40% of items available in another colour and 60% unavailable.
 
@@ -155,11 +154,11 @@ raw_dataset %>%
    kable_styling(font_size = 10, latex_options = "hold_position")
 ```
 
-### Depth, Height & Width
+## Depth, Height & Width
 
 These three variables describe the physical dimensions of each item, measured in centimetres. As can be seen from the first row of table \ref{tab:head}, these variables can contain missing values, so we will have to address this before using these variables for modelling. First we can look at the distribution of each variable in figures \ref{fig:dims_1}, \ref{fig:dims_2} and \ref{fig:dims_3}. 
 
-#### Depth
+### Depth
 
 From figure \ref{fig:dims_1}, it appears that the most common values are between 20 and 60cm, with the peak being somewhere between 30 and 50cm. The frequency of depths drops off quickly above 60cm, apart from a spike in the 90-100cm bin. There are a few items with depths of greater than 150cm, but most of the distribution occurs below 100cm.
 
@@ -224,7 +223,7 @@ raw_dataset %>%
 It can also be seen in figure \ref{fig:dims_1} that the outlying values above 150cm are mostly composed of sofas and armchairs. Table \ref{tab:sofa_outlier_prop} shows the exact proportions of items above and below 150cm in depth that are sofas and armchairs. From these numbers, we can see that items of this category are over represented at depth values over 150cm.
 
 
-#### Height
+### Height
 
 Figure \ref{fig:dims_2} shows that height is distributed more widely than depth, with some amount of the distribution present from 0 to 250cm. and There are typically 10-30 items in each of the bins between 30 and 110cm, apart from a strong peak between 70 and 90cm. Outside that range, there are typically between 1 and 10 items per bin throughout the variable range.
 
@@ -301,7 +300,7 @@ raw_dataset %>%
 ```
 Figure \ref{fig:dims_2} also shows that the upper part of the height range is dominated by items in the "Wardrobes" and "Bookcases & shelving units" categories. From table \ref{tab:height_upper_prop}, wardrobes and bookcases form a significant proportion of the items over 165cm in height, accounting for 80% of such items in the dataset. They are much less common at lower heights, which is to be expected given that these tend to be used for storing large objects (in the case of wardrobes) or centralising the storage of many small objects (in the case of bookcases).
 
-#### Width
+### Width
 
 The distribution of width measurements is shown in figure \ref{fig:dims_3}. This distribution is somewhat similar to the distribution for depth in figure \ref{fig:dims_1}. There is a large peak roughly between 60 and 80cm, with a long tail to the right. The tail is heavier here than for depth, with items appearing all the way out to 360cm.
 ```{r dims_fig_3, out.width="70%",  fig.align = "center", fig.pos = "H", fig.cap = "\\label{fig:dims_3}The distribution of width measurements in cm. Each bin covers a 20cm range. The yellow bars represent the number of chairs in each bin and the blue bars represent the number of tables or desks in each bin. The grey bars represent the number of all other items."}
@@ -436,7 +435,7 @@ grid.arrange(width1, width2, ncol=1)
 Lastly, figure \ref{fig:width_by_category} shows the boxplots of width for each category. In the upper plot, the medians range from approximately 50cm ("Chairs" and "Outdoor furniture") to much larger values: "Beds" and "Wardrobes" have medians of around 150cm and "Sofas & armchairs" has a median of over 200cm. The ranges of width values for the categories in this plot are often quite wide, for instance "Sofas & armchairs" ranges from below 50cm to over 300cm. For the lower plot, the medians appear a little more consistent, typically around 50cm, although "Chests of drawers & drawer units", "Room dividers" and "Sideboards, buffets & console tables" have noticeably larger medians. 
 
 
-# Missing Data
+## Missing Data
 
 ```{r missing_data}
 null_skim <- skim_with(base = sfl(n_missing=n_missing, complete_rate=complete_rate), character=sfl(), numeric=sfl(), logical=sfl(), append=FALSE)
@@ -453,7 +452,7 @@ drop_proportion <- (raw_dataset %>%
 ```
 Some of the items in the dataset are missing values for some variables, as can be seen from the first row of table \ref{tab:head}. Table \ref{tab:nulls} shows the number of missing values in each column, along with the proportion of items that are not missing a value in that column. The only variables with missing information are the ones describing the dimensions of the item: depth, height and width. These missing values must be handled somehow if the data is to be used for modelling. The simplest way to treat this data would be to drop all rows which are missing one or more values. However, it can be seen from \ref{tab:nulls} that only 60.2% of rows are not missing their depth value. This means that dropping rows with missing values would remove at least 39.8% of the dataset. In fact, taking all three dimension variables into account, this cleaning strategy would remove `r round(100 * drop_proportion, 1)`% of the rows in the dataset. This seems like too much data to lose, so we must impute the missing values somehow. The distributions of these variables have some slightly irregular features and outliers, so mean imputation may be inappropriate. The median may be a more robust approach, although a global median for each variable may also be inappropriate as the distribution of each variable can differ strongly between item categories, as shown in figures \ref{fig:depth_by_category}, \ref{fig:height_by_category} and \ref{fig:width_by_category}. Therefore, we can try cleaning these columns by assigning the median of the relevant item category in place of missing values.
 
-#### Multiple Missing Values
+### Multiple Missing Values
 ```{r all_missing_data}
 all_missing_proportion <- (raw_dataset %>%
    filter(if_all(c("depth", "height", "width"), is.na)) %>%
@@ -461,7 +460,7 @@ all_missing_proportion <- (raw_dataset %>%
 ```
 In some cases, all 3 dimension variables are missing from an item. This occurs in `r round(all_missing_proportion, 1)`% of rows. As this is a small proportion of the overall dataset and imputing all 3 dimensions of the item would likely lead to a poor approximation of the true values, we should drop these rows from the dataset we use for modelling.
 
-### Cleaning the Data
+## Cleaning the Data
 We are now in a position to prepare the dataset for modelling. The processing steps to be done are:
 
 * Discard the `item_id` column
@@ -504,6 +503,9 @@ head(cleaned_dataset, n=5) %>%
   kable(caption = '\\label{tab:cleaned} The features of the first five items in the dataset after the cleaning steps have been applied.', format="latex", booktabs=TRUE) %>%
    kable_styling(font_size = 10, latex_options = "hold_position")
 ```
+# Modelling
+
+We can now begin considering our model. The first step here is to examine the relationship between each explanatory variable and the response variable.
 
 ## Relationship Between Variables and Response
 
@@ -598,25 +600,27 @@ if (save_plots){
   ggsave(device="svg", filename="width_y_dist.svg", path="plots")
 }
 ```
-# Model Selection
+
+## Model Selection
+
 At last, we can fit some models to investigate our question of interest: determining which variables influence whether an item will cost more than 1000SR. To do this we will fit a binary GLM with the price column as the target variable. The regression coefficients will then give the change in log-odds associated with a unit change in the corresponding covariate. Comparing the coefficients, then, will show us which variables are most important in determining whether an item costs more than 1000SR. The first model to fit will be a model incorporating all of the available covariates.
 
-## Full Model
+### Full Model
 
 ```{r set_strings}
 # This is a silly workaround, but the latex equation won't knit without it
 s_online <- "sellable_online"
 ```
 This model is of the form:
-$$\log\left(\frac{p_i}{1-p_i}\right) = \beta_0 + \sum_{j}^{16}\beta_j\mathbb{I}_{j}(x_{i}) + \beta_{17}\mathbb{I}_{\textrm{sellable}}(x_i) + \beta_{18}\mathbb{I}_{colours}(x_i) + \beta_{19}x_{i, depth} + \beta_{20}x_{i, height} + \beta_{21}x_{i, width}$$
+$$\log\left(\frac{p_i}{1-p_i}\right) = \beta_0 + \sum_{j}^{16}\beta_j\mathbb{I}_{j}(x_{i}) + \beta_{17}\mathbb{I}_{sellable}(x_i) + \beta_{18}\mathbb{I}_{colours}(x_i) + \beta_{19}x_{i,depth} + \beta_{20}x_{i,height} + \beta_{21}x_{i,width}$$
 where:
 
 * $p_i$ is the probability of the i<sup>th</sup> item having price above 1000SR
 * $\beta_0$ is the intercept term
 * $\beta_1, \beta_2, ..., \beta_{21}$ are the regression parameters
 * $\mathbb{I}_1(), \mathbb{I}_2(), ..., \mathbb{I}_{16}()$ are indicator functions evaluating to 1 if the i<sup>th</sup> item is in the corresponding category. For the 17 categories, 16 indicators are required as the baseline category is represented by all indicator functions returning zero.
-* $\mathbb{I}_{\textrm{sellable}}()$ is an indicator function returning 1 if the i<sup>th</sup> item is sellable online and 0 otherwise
-* $\mathbb{I}_{\textrm{colours}}()$ is an indicator function returning 1 if the i<sup>th</sup> item is available in other colors and 0 otherwise
+* $\mathbb{I}_{sellable}()$ is an indicator function returning 1 if the i<sup>th</sup> item is sellable online and 0 otherwise
+* $\mathbb{I}_{colours}()$ is an indicator function returning 1 if the i<sup>th</sup> item is available in other colors and 0 otherwise
 * $x_{i, depth}, x_{i, height}, x_{i, width}$ are the depth, width and height of the i<sup>th</sup> item in centimetres.
 
 Table \ref{tab:full_model} shows the fitted parameter estimates for this model. We can see that the confidence intervals parameters associated with each of the different category values are all very wide and include zero. This indicates that, when controlling for the other variables in the model, the category has no statistically significant effect on the propability of an item costing more than 1000SR. Given the differences seen in figure \ref{fig:cat_y_dist}, it is surprising that none of the category parameters are significant, but it may be the case that the differences between categories are explained by other variables.
@@ -639,7 +643,7 @@ knitr::kable(
   kable_styling(font_size = 10)
 ```
 
-## Model Without Category
+### Model Without Category
 
 The model fitted here contains all the same terms as the full model, except the terms involving $\beta_1, \beta_2, ..., \beta_{16}$. The parameter estimates are shown in table \ref{tab:mid_model}. The confidence intervals for sellable_online and other_colors, while smaller than they were in the first model, both include zero. Therefore these variables still do not have a significant effect on the log-odds of an item costing more than 1000SR. We can see that depth, width and height all have confidence intervals that do not include zero. We can now fit a model with just these three variables.
 
@@ -659,7 +663,7 @@ knitr::kable(
   kable_styling(font_size = 10)
 ```
 
-## Model with Only Numeric Variables
+### Model with Only Numeric Variables
 
 ```{r size_model_table, warning=F, message=F}
 model3 <- glm(price~height+width+depth, cleaned_dataset, family = "binomial")
@@ -678,10 +682,10 @@ knitr::kable(
 The final model fitted here is one including only the depth, width and height covariates. These all had significant parameters in the previous model, so we expect them to still be significant now the other variables have been removed. From table \ref{tab:size_model}, we can see that all parameters in this model (including the intercept) have confidence intervals that do not include zero, and are therefore significant at the $\alpha = 0.05$ level.
 
 ### Parameter Comparison
-Comparing the parameters, we can see that depth has the largest estimated parameter, with a value of `r round(coeffs["depth"], 3)`. This means that for every extra centimetre in depth, we expect the log-odds of the item costing over 1000SR to increase by `r round(coeffs["depth"], 3)`. This is equivalent to mutliplying the odds of this outcome by `r round(exp(coeffs["depth"]), 3)`. The next largest parameter is for width, which gives the expected log-odds increase per centimetre of width as `r round(coeffs["width"], 3)`, or an odds multiplier of `r round(exp(coeffs["width"]), 3)`. The smallest parameter of the 3 is height, giving a log-odds increase of `r round(coeffs["height"], 3)` (odds multiplier of `r round(exp(coeffs["height"]), 3)`) per centimetre.
+Comparing the parameters, we can see that depth has the largest estimated parameter, with a value of `r round(coeffs["depth"], 3)`. This means that for every extra centimetre in depth, we expect the log-odds of the item costing over 1000SR to increase by `r round(coeffs["depth"], 3)`. This is equivalent to mutliplying the odds of this outcome by `r round(exp(coeffs["depth"]), 3)`. The next largest parameter is for width, which gives the expected log-odds increase per centimetre of width as `r round(coeffs["width"], 3)`, or an odds multiplier of `r round(exp(coeffs["width"]), 3)`. The smallest parameter of the three is height, giving a log-odds increase of `r round(coeffs["height"], 3)` (odds multiplier of `r round(exp(coeffs["height"]), 3)`) per centimetre.
 
 The fact that these are the only variables that seem to have an effect on whether the price of the item is greater than 1000SR makes some sense, as the dimensions of the item determine roughly how much material went into making it and how costly it is to transport. The same amount of raw materials would plausibly cost the same regardless of whether you were building a bookcase or a bed. The relative sizes of the parameters is also somewhat expected, given the distributions seen in figures \ref{fig:depth_y_dist}, \ref{fig:height_y_dist} and \ref{fig:width_y_dist}, as the depth distribution was the most clearly separate between the price groups, followed by the width distribution and then the height distribution.
 
 
 # Conclusions
-Fitting binary GLMs to the data and iteratively removing insignificant parameters indicates that the only variables influencing whether an item costs more than 1000 Saudi Riyals, are the depth, width and height of the item. Depth influenced the probability most, followed by width and then height. The category of item did not significantly affect the probability, despite different categories having quite different proportions of items in each price bracket. This may be due to the category correlating with the item size, but this modelling work could be extended to investigate this further. For instance, instead of including a parameter for each category in the model, the category variable could be converted into dummy variables and these variables could be removed one at a time during model selection, rather than all at once. This may lead to some informative categories being retained. As the results here indicate that the model size is the determining factor in whether its price is above 1000SR, a further extension to the work could be to multiply depth, width and height together to create a "volume" variable and fit a model using this covariate. This would indicate whether it is just overall "size" that determines price, and not the individual dimensions separately.
+Fitting binary GLMs to the data and iteratively removing insignificant parameters indicates that the only variables influencing whether an item costs more than 1000 Saudi Riyals, are the depth, width and height of the item. Depth influenced the probability most, followed by width and then height. The category of item did not significantly affect the probability, despite different categories having quite different proportions of items in each price bracket. This may be due to the category correlating with the item size, but this modelling work could be extended to investigate this further. For instance, instead of including a parameter for each category in the model, the category variable could be converted into dummy variables and these variables could be removed one at a time during model selection, rather than all at once. This may lead to some informative categories being retained. As the results here indicate that the item size is the determining factor in whether its price is above 1000SR, a further extension to the work could be to multiply depth, width and height together to create a "volume" variable and fit a model using this covariate. This would indicate whether it is just overall "size" that determines price, and not the individual dimensions separately.
