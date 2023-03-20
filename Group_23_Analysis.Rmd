@@ -21,7 +21,7 @@ library(skimr)
 
 set.seed(23)
 
-save_plots = FALSE
+save_plots = TRUE
 ```
 # Introduction 
 This project aims to determine which features of items sold by IKEA Saudi Arabia determine whether the items cost more or less than 1000 Saudi Riyals. 
@@ -169,7 +169,7 @@ raw_dataset %>%
   ggplot(mapping=aes(x=depth, fill=category)) + 
   geom_histogram(binwidth=10, center=5) +
   xlab("Depth (cm)") +
-  ylab("Number of items") + 
+  ylab("Number of Items") + 
   scale_fill_manual(values=c("#999999", "#619CFF")) +
   theme(legend.position = "none")
 
@@ -239,6 +239,7 @@ raw_dataset %>%
   ggplot(mapping=aes(x=height, fill=category)) + 
   geom_histogram(binwidth=10, center=5) +
   xlab("Height (cm)") +
+  ylab("Number of Items") +
   scale_fill_manual(values=c("#999999", "#619CFF", "#FFCC33")) +
   theme(legend.position = "none")
 
@@ -316,6 +317,7 @@ raw_dataset %>%
   ggplot(mapping=aes(x=width, fill=category)) + 
   geom_histogram(binwidth=20, center=10) +
   xlab("Width (cm)") +
+  ylab("Number of Items") +
   scale_fill_manual(values=c("#999999","#FFCC33",  "#619CFF")) +
   theme(legend.position = "none")
 

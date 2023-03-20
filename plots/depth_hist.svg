@@ -122,6 +122,6 @@
 <text x='364.93' y='303.74' text-anchor='middle' style='font-size: 8.80px;fill: #4D4D4D; font-family: "Arial";' textLength='14.69px' lengthAdjust='spacingAndGlyphs'>200</text>
 <text x='443.00' y='303.74' text-anchor='middle' style='font-size: 8.80px;fill: #4D4D4D; font-family: "Arial";' textLength='14.69px' lengthAdjust='spacingAndGlyphs'>250</text>
 <text x='247.83' y='316.20' text-anchor='middle' style='font-size: 11.00px; font-family: "Arial";' textLength='54.42px' lengthAdjust='spacingAndGlyphs'>Depth (cm)</text>
-<text transform='translate(13.36,148.99) rotate(-90)' text-anchor='middle' style='font-size: 11.00px; font-family: "Arial";' textLength='80.72px' lengthAdjust='spacingAndGlyphs'>Number of items</text>
+<text transform='translate(13.36,148.99) rotate(-90)' text-anchor='middle' style='font-size: 11.00px; font-family: "Arial";' textLength='81.34px' lengthAdjust='spacingAndGlyphs'>Number of Items</text>
 </g>
 </svg>
