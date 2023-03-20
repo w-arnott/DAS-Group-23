@@ -21,7 +21,7 @@ library(skimr)
 
 set.seed(23)
 
-save_plots = TRUE
+save_plots = FALSE
 ```
 # Introduction 
 This project aims to determine which features of items sold by IKEA Saudi Arabia determine whether the items cost more or less than 1000 Saudi Riyals. 
